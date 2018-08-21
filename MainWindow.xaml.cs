@@ -1,20 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace AsyncMandelbrot {
 	/// <summary>
@@ -27,45 +17,38 @@ namespace AsyncMandelbrot {
 		public MainWindow() {
 			InitializeComponent();
 
-			_image.Loaded += async delegate {
-				await CreateBitmapAndRunAsync(_from, _to);
+			_image.Loaded += delegate {
+				CreateBitmapAndRun(_from, _to);
 			};
 
 		}
 
-		async Task CreateBitmapAndRunAsync(Complex from, Complex to) {
+		void CreateBitmapAndRun(Complex from, Complex to) {
 			int width = _image.ActualWidth == 0 ? 600 : (int)_image.ActualWidth;
 			int height = _image.ActualHeight == 0 ? 600 : (int)_image.ActualHeight;
 			_bmp = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
 			_image.Source = _bmp;
-			await RunMandelbrotAsync(from, to);
+			RunMandelbrot(from, to);
 		}
 
-		async Task RunMandelbrotAsync(Complex from, Complex to) {
+		void RunMandelbrot(Complex from, Complex to) {
 			_from = from; _to = to;
 			int width = _bmp.PixelWidth, height = _bmp.PixelHeight;
 			double deltax = (to.Real - from.Real) / _bmp.Width;
 			double deltay = (to.Imaginary - from.Imaginary) / _bmp.Height;
 			int[] pixels = new int[width];
-			try {
-				for(int y = 0; y < height; y++) {
-					await Task.Run(() => {
-						Parallel.For(0, width, x => {
-							pixels[x] = MandelbrotColor(from + new Complex(x * deltax, y * deltay));
-						});
-					});
-					_bmp.WritePixels(new Int32Rect(0, y, width, 1), pixels, _bmp.BackBufferStride, 0);
+			for (int y = 0; y < height; y++) {
+				for (int x = 0; x < width; x++) {
+					pixels[x] = MandelbrotColor(from + new Complex(x * deltax, y * deltay));
 				}
-			}
-			catch(Exception ex) {
-				MessageBox.Show(ex.Message);
+				_bmp.WritePixels(new Int32Rect(0, y, width, 1), pixels, _bmp.BackBufferStride, 0);
 			}
 		}
 
 		static Color[] _rainbow;
 
 		static MainWindow() {
-			using(var stm = File.Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\nice.xml", FileMode.Open)) {
+			using (var stm = File.Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\nice.xml", FileMode.Open)) {
 				_rainbow = ColorGradientPersist.Read(stm).GenerateColors(512);
 			}
 		}
@@ -73,7 +56,7 @@ namespace AsyncMandelbrot {
 			int color = _rainbow.Length;
 
 			Complex z = Complex.Zero;
-			while(z.Real * z.Real + z.Imaginary * z.Imaginary <= 4 && color > 0) {
+			while (z.Real * z.Real + z.Imaginary * z.Imaginary <= 4 && color > 0) {
 				z = z * z + c;
 				color--;
 			}
@@ -93,14 +76,14 @@ namespace AsyncMandelbrot {
 		}
 
 		private void OnMouseMove(object sender, MouseEventArgs e) {
-			if(_isSelecting) {
+			if (_isSelecting) {
 				var pt = e.GetPosition(_image);
 				_rect.Rect = new Rect(Math.Min(_start.X, pt.X), Math.Min(_start.Y, pt.Y), Math.Abs(pt.X - _start.X), Math.Abs(pt.Y - _start.Y));
 			}
 		}
 
-		private async void OnMouseUp(object sender, MouseButtonEventArgs e) {
-			if(_isSelecting) {
+		private void OnMouseUp(object sender, MouseButtonEventArgs e) {
+			if (_isSelecting) {
 				_isSelecting = false;
 				_selection.Visibility = Visibility.Hidden;
 				var pt = e.GetPosition(_image);
@@ -112,13 +95,13 @@ namespace AsyncMandelbrot {
 				_from = _from + new Complex(deltax, deltay);
 				_to = _from + new Complex(newWidth, newHeight);
 				_image.ReleaseMouseCapture();
-				await CreateBitmapAndRunAsync(_from, _to);
+				CreateBitmapAndRun(_from, _to);
 			}
 
 		}
 
-		private async void OnReset(object sender, RoutedEventArgs e) {
-			await CreateBitmapAndRunAsync(new Complex(-1.5, -1), new Complex(1, 1));
+		private void OnReset(object sender, RoutedEventArgs e) {
+			CreateBitmapAndRun(new Complex(-1.5, -1), new Complex(1, 1));
 		}
 	}
 }
