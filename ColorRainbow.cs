@@ -37,7 +37,7 @@ namespace AsyncMandelbrot {
 		}
 	}
 
-	class ColorGradientPersist {
+	static class ColorGradientPersist {
 		public static GradientGenerator Read(Stream stm) {
 			var xml = XElement.Load(stm);
 			return new GradientGenerator {

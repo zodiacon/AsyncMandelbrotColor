@@ -1,6 +1,6 @@
 ﻿using System;
-using System.IO;
 using System.Numerics;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -17,41 +17,41 @@ namespace AsyncMandelbrot {
 		public MainWindow() {
 			InitializeComponent();
 
-			_image.Loaded += delegate {
-				CreateBitmapAndRun(_from, _to);
+			var res = Application.GetResourceStream(new Uri("nice.xml", UriKind.Relative));
+			_rainbow = ColorGradientPersist.Read(res.Stream).GenerateColors(512);
+
+			_image.Loaded += async delegate {
+				await CreateBitmapAndRunAsync(_from, _to);
 			};
 
 		}
 
-		void CreateBitmapAndRun(Complex from, Complex to) {
+		async Task CreateBitmapAndRunAsync(Complex from, Complex to) {
 			int width = _image.ActualWidth == 0 ? 600 : (int)_image.ActualWidth;
 			int height = _image.ActualHeight == 0 ? 600 : (int)_image.ActualHeight;
 			_bmp = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
 			_image.Source = _bmp;
-			RunMandelbrot(from, to);
+			await RunMandelbrotAsync(from, to);
 		}
 
-		void RunMandelbrot(Complex from, Complex to) {
+		async Task RunMandelbrotAsync(Complex from, Complex to) {
 			_from = from; _to = to;
 			int width = _bmp.PixelWidth, height = _bmp.PixelHeight;
 			double deltax = (to.Real - from.Real) / _bmp.Width;
 			double deltay = (to.Imaginary - from.Imaginary) / _bmp.Height;
 			int[] pixels = new int[width];
 			for (int y = 0; y < height; y++) {
-				for (int x = 0; x < width; x++) {
-					pixels[x] = MandelbrotColor(from + new Complex(x * deltax, y * deltay));
-				}
+				await Task.Run(() => {
+					Parallel.For(0, width, x => {
+						pixels[x] = MandelbrotColor(from + new Complex(x * deltax, y * deltay));
+					});
+				});
 				_bmp.WritePixels(new Int32Rect(0, y, width, 1), pixels, _bmp.BackBufferStride, 0);
 			}
 		}
 
-		static Color[] _rainbow;
+		Color[] _rainbow;
 
-		static MainWindow() {
-			using (var stm = File.Open(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\nice.xml", FileMode.Open)) {
-				_rainbow = ColorGradientPersist.Read(stm).GenerateColors(512);
-			}
-		}
 		int MandelbrotColor(Complex c) {
 			int color = _rainbow.Length;
 
@@ -82,7 +82,7 @@ namespace AsyncMandelbrot {
 			}
 		}
 
-		private void OnMouseUp(object sender, MouseButtonEventArgs e) {
+		private async void OnMouseUp(object sender, MouseButtonEventArgs e) {
 			if (_isSelecting) {
 				_isSelecting = false;
 				_selection.Visibility = Visibility.Hidden;
@@ -95,13 +95,13 @@ namespace AsyncMandelbrot {
 				_from = _from + new Complex(deltax, deltay);
 				_to = _from + new Complex(newWidth, newHeight);
 				_image.ReleaseMouseCapture();
-				CreateBitmapAndRun(_from, _to);
+				await CreateBitmapAndRunAsync(_from, _to);
 			}
 
 		}
 
-		private void OnReset(object sender, RoutedEventArgs e) {
-			CreateBitmapAndRun(new Complex(-1.5, -1), new Complex(1, 1));
+		private async void OnReset(object sender, RoutedEventArgs e) {
+			await CreateBitmapAndRunAsync(new Complex(-1.5, -1), new Complex(1, 1));
 		}
 	}
 }
