@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Threading.Tasks;
 using System.Windows;
@@ -27,6 +28,7 @@ namespace AsyncMandelbrot {
 		}
 
 		async Task CreateBitmapAndRunAsync(Complex from, Complex to) {
+			Debug.WriteLine($"Mandelbrot {from}->{to}");
 			int width = _image.ActualWidth == 0 ? 600 : (int)_image.ActualWidth;
 			int height = _image.ActualHeight == 0 ? 600 : (int)_image.ActualHeight;
 			_bmp = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
@@ -39,15 +41,17 @@ namespace AsyncMandelbrot {
 			int width = _bmp.PixelWidth, height = _bmp.PixelHeight;
 			double deltax = (to.Real - from.Real) / _bmp.Width;
 			double deltay = (to.Imaginary - from.Imaginary) / _bmp.Height;
-			int[] pixels = new int[width];
-			for (int y = 0; y < height; y++) {
-				await Task.Run(() => {
-					Parallel.For(0, width, x => {
+			Debug.WriteLine($"Mandelbrot image: {width}x{height}");
+			await Task.Run(() => {
+				Parallel.For(0, height, y => {
+					int[] pixels = new int[width];
+					for (int x = 0; x < width; x++)
 						pixels[x] = MandelbrotColor(from + new Complex(x * deltax, y * deltay));
+					Dispatcher.InvokeAsync(() => {
+						_bmp.WritePixels(new Int32Rect(0, y, width, 1), pixels, _bmp.BackBufferStride, 0);
 					});
 				});
-				_bmp.WritePixels(new Int32Rect(0, y, width, 1), pixels, _bmp.BackBufferStride, 0);
-			}
+			});
 		}
 
 		Color[] _rainbow;
@@ -101,6 +105,7 @@ namespace AsyncMandelbrot {
 		}
 
 		private async void OnReset(object sender, RoutedEventArgs e) {
+			Debug.WriteLine("Mandelbrot Reset");
 			await CreateBitmapAndRunAsync(new Complex(-1.5, -1), new Complex(1, 1));
 		}
 	}
